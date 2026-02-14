@@ -38,26 +38,45 @@ jobs:
           cat tunnel_log.txt
           echo "Tunnel URL above ^"
 
-      - name: "Keepalive Loop (5h 50m)"
+      - name: "Start Keepalive Loop & SSH"
+        env:
+          GH_TOKEN: ${{ secrets.MY_SECRET_PAT }}
+          REPO: ${{ github.repository }}
+          # Extract branch name from GITHUB_REF (refs/heads/main -> main)
+          REF: ${{ github.ref_name }}
         run: |
-          echo "Starting 5 hour 50 minute timer..."
-          sleep 21000 # 5 hours 50 minutes in seconds
+          # 1. Start the Daisy-Chain Timer in the BACKGROUND
+          # We use a background subshell so it doesn't block the SSH session
+          (
+            echo "Keepalive timer started (5h 50m)..."
+            sleep 21000 # 5h 50m
 
-      - name: Trigger Next Workflow
-        if: always() # Ensure this runs even if previous steps fail (though sleep won't "fail")
-        uses: actions/github-script@v6
+            echo "Triggering next workflow..."
+            curl -X POST \
+              -H "Authorization: token $GH_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/$REPO/actions/workflows/persistent_runner.yml/dispatches" \
+              -d "{\"ref\":\"$REF\"}"
+
+            echo "Next workflow triggered."
+          ) &
+          # Save the PID of the background process so we can wait for it later
+          echo $! > keepalive_pid.txt
+
+      # 2. Start Tmate (Blocks here until connection closes or timeout)
+      - name: Setup Tmate Session
+        uses: mxschmitt/action-tmate@v3
         with:
-          github-token: ${{ secrets.MY_SECRET_PAT }}
-          script: |
-              try {
-                await github.rest.actions.createWorkflowDispatch({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  workflow_id: 'persistent_runner.yml',
-                  ref: context.ref
-                });
-                console.log("Next workflow triggered successfully!");
-              } catch (error) {
-                console.error("Failed to trigger next workflow:", error);
-                core.setFailed("Failed to trigger next workflow");
-              }
+          limit-access-to-actor: true # Only YOU can SSH in (uses your GitHub public keys)
+
+      # 3. Wait for Keepalive (if Tmate is closed early)
+      - name: Wait for Keepalive
+        if: always()
+        run: |
+          PID=$(cat keepalive_pid.txt)
+          echo "Waiting for Keepalive timer (PID $PID) to finish..."
+          # Start a wait loop that checks if the process is still running
+          while kill -0 $PID 2>/dev/null; do
+            sleep 10
+          done
+          echo "Keepalive timer finished. Exiting."
