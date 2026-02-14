@@ -1,0 +1,63 @@
+name: Persistent Cloudflare Runner
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */5 * * *' # Backup trigger every 5 hours
+
+jobs:
+  run-service:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Cloudflared
+        run: |
+          curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+          sudo dpkg -i cloudflared.deb
+
+      - name: Start Server & Tunnel
+        run: |
+          # Start your actual server here (e.g., python3 server.py &)
+          # For demo purposes, we'll start a simple python http server
+          python3 -m http.server 8080 &
+
+          # Start Cloudflare Tunnel
+          # NOTE: For a permanent domain, you would use: cloudflared tunnel run --token ${{ secrets.CLOUDFLARE_TOKEN }}
+          # For this free/temp version, we use 'tunnel --url' which gives a random trycloudflare.com URL
+          cloudflared tunnel --url http://localhost:8080 > tunnel_log.txt 2>&1 &
+
+          echo "Waiting for tunnel URL..."
+          sleep 10
+          cat tunnel_log.txt
+          echo "Tunnel URL above ^"
+
+      - name: "Keepalive Loop (5h 50m)"
+        run: |
+          echo "Starting 5 hour 50 minute timer..."
+          sleep 21000 # 5 hours 50 minutes in seconds
+
+      - name: Trigger Next Workflow
+        if: always() # Ensure this runs even if previous steps fail (though sleep won't "fail")
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.MY_SECRET_PAT }}
+          script: |
+              try {
+                await github.rest.actions.createWorkflowDispatch({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  workflow_id: 'persistent_runner.yml',
+                  ref: context.ref
+                });
+                console.log("Next workflow triggered successfully!");
+              } catch (error) {
+                console.error("Failed to trigger next workflow:", error);
+                core.setFailed("Failed to trigger next workflow");
+              }
