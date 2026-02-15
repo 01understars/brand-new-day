@@ -28,7 +28,8 @@ jobs:
       - name: Install Zrok
         run: |
           New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\zrok\bin"
-          $v = (Invoke-RestMethod -Uri "https://api.github.com/repos/openziti/zrok/releases/latest").tag_name
+          # Use hardcoded verified version v1.1.11 to avoid API rate limits & 404s
+          $v = "v1.1.11"
           $url = "https://github.com/openziti/zrok/releases/download/$v/zrok_$(($v).TrimStart('v'))_windows_amd64.tar.gz"
           Invoke-WebRequest -Uri $url -OutFile "$env:USERPROFILE\zrok.tar.gz"
           tar -xzf "$env:USERPROFILE\zrok.tar.gz" -C "$env:USERPROFILE\zrok\bin"
