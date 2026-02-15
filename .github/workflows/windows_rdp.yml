@@ -32,10 +32,21 @@ jobs:
           $url = "https://github.com/openziti/zrok/releases/download/$v/zrok_$(($v).TrimStart('v'))_windows_amd64.tar.gz"
           Invoke-WebRequest -Uri $url -OutFile "$env:USERPROFILE\zrok.tar.gz"
           tar -xzf "$env:USERPROFILE\zrok.tar.gz" -C "$env:USERPROFILE\zrok\bin"
-          $zrokPath = "$env:USERPROFILE\zrok\bin\zrok_$(($v).TrimStart('v'))_windows_amd64"
-          echo "$zrokPath" >> $env:GITHUB_PATH
-          # Also set a step-level output or env var for the next steps to use absolute path if needed
-          echo "ZROK_EXE=$zrokPath\zrok.exe" >> $env:GITHUB_ENV
+
+          # Recursively find zrok.exe (Robust fix for unknown folder structure)
+          $zrokExe = Get-ChildItem -Path "$env:USERPROFILE\zrok" -Recurse -Filter "zrok.exe" | Select-Object -ExpandProperty FullName -First 1
+
+          if (-not $zrokExe) {
+            Write-Error "Could not find zrok.exe in $env:USERPROFILE\zrok"
+            exit 1
+          }
+
+          Write-Host "Found Zrok at: $zrokExe"
+          echo "ZROK_EXE=$zrokExe" >> $env:GITHUB_ENV
+
+          # Add parent dir to PATH just in case
+          $parentDir = Split-Path -Parent $zrokExe
+          echo "$parentDir" >> $env:GITHUB_PATH
 
       - name: Enable Zrok Environment
         if: env.ZROK_TOKEN != ''
