@@ -53,7 +53,8 @@ jobs:
         if: env.ZROK_TOKEN != ''
         run: |
           # Enable execution of Zrok commands using the absolute path from the env var
-          # Try to disable first in case of a dirty state from previous run
+          # Force clean old environment to avoid 401 errors
+          Remove-Item -Path "$env:USERPROFILE\.zrok" -Recurse -Force -ErrorAction SilentlyContinue
           & $env:ZROK_EXE disable 2>$null
           & $env:ZROK_EXE enable ${{ env.ZROK_TOKEN }}
 
