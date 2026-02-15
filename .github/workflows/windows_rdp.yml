@@ -32,21 +32,23 @@ jobs:
           $url = "https://github.com/openziti/zrok/releases/download/$v/zrok_$(($v).TrimStart('v'))_windows_amd64.tar.gz"
           Invoke-WebRequest -Uri $url -OutFile "$env:USERPROFILE\zrok.tar.gz"
           tar -xzf "$env:USERPROFILE\zrok.tar.gz" -C "$env:USERPROFILE\zrok\bin"
-          $env:Path = "$env:USERPROFILE\zrok\bin\zrok_$(($v).TrimStart('v'))_windows_amd64;$env:Path"
-          echo "$env:USERPROFILE\zrok\bin\zrok_$(($v).TrimStart('v'))_windows_amd64" >> $env:GITHUB_PATH
+          $zrokPath = "$env:USERPROFILE\zrok\bin\zrok_$(($v).TrimStart('v'))_windows_amd64"
+          echo "$zrokPath" >> $env:GITHUB_PATH
+          # Also set a step-level output or env var for the next steps to use absolute path if needed
+          echo "ZROK_EXE=$zrokPath\zrok.exe" >> $env:GITHUB_ENV
 
       - name: Enable Zrok Environment
         if: env.ZROK_TOKEN != ''
         run: |
-          # Enable execution of Zrok commands
-          zrok enable ${{ env.ZROK_TOKEN }}
+          # Enable execution of Zrok commands using the absolute path from the env var
+          & $env:ZROK_EXE enable ${{ env.ZROK_TOKEN }}
 
       - name: Share RDP via Zrok (Private)
         if: env.ZROK_TOKEN != ''
         run: |
           # Start sharing port 3389 privately. This runs in background.
           # The output will contain the 'zrok access private ...' command needed on client.
-          Start-Process -NoNewWindow -FilePath "zrok" -ArgumentList "share private --backend-mode tcpTunnel 127.0.0.1:3389 --headless"
+          Start-Process -NoNewWindow -FilePath "$env:ZROK_EXE" -ArgumentList "share private --backend-mode tcpTunnel 127.0.0.1:3389 --headless"
           Write-Host "Zrok Share Started! Check your Zrok Web Portal or logs for the share token."
         continue-on-error: true
 
