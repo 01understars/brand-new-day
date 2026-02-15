@@ -58,10 +58,33 @@ jobs:
       - name: Share RDP via Zrok (Private)
         if: env.ZROK_TOKEN != ''
         run: |
-          # Start sharing port 3389 privately. This runs in background.
-          # The output will contain the 'zrok access private ...' command needed on client.
-          Start-Process -NoNewWindow -FilePath "$env:ZROK_EXE" -ArgumentList "share private --backend-mode tcpTunnel 127.0.0.1:3389 --headless"
-          Write-Host "Zrok Share Started! Check your Zrok Web Portal or logs for the share token."
+          # Use Start-Process with redirection for robustness
+          $zrokLog = "zrok_share.log"
+          $proc = Start-Process -FilePath "$env:ZROK_EXE" -ArgumentList "share private --backend-mode tcpTunnel 127.0.0.1:3389 --headless" -RedirectStandardOutput $zrokLog -RedirectStandardError $zrokLog -PassThru -NoNewWindow
+
+          echo "Zrok Share Started (PID: $($proc.Id)). Scanning log for token..."
+
+          # Wait loop to find the token in the log file
+          for ($i=0; $i -lt 30; $i++) {
+            if (Test-Path $zrokLog) {
+              $logContent = Get-Content $zrokLog
+              $tokenLine = $logContent | Select-String "zrok access private"
+              if ($tokenLine) {
+                Write-Host "FOUND TOKEN:" -ForegroundColor Green
+                Write-Host $tokenLine -ForegroundColor Green
+                break
+              }
+            }
+            Start-Sleep -Seconds 2
+          }
+
+          if (-not (Get-Process -Id $proc.Id -ErrorAction SilentlyContinue)) {
+            Write-Error "Zrok process crashed shortly after starting. Check logs above."
+            Get-Content $zrokLog
+            exit 1
+          }
+
+          Write-Host "Zrok appears stable."
         continue-on-error: true
 
       # --- CLOUDFLARE SETUP (Secondary Option) ---
