@@ -63,7 +63,9 @@ jobs:
         run: |
           # Use Start-Process with redirection for robustness
           $zrokLog = "zrok_share.log"
-          $proc = Start-Process -FilePath "$env:ZROK_EXE" -ArgumentList "share private --backend-mode tcpTunnel 127.0.0.1:3389 --headless" -RedirectStandardOutput $zrokLog -RedirectStandardError $zrokLog -PassThru -NoNewWindow
+          $zrokErr = "zrok_share.err"
+          # Redirect stdout and stderr to DIFFERENT files to avoid locking error
+          $proc = Start-Process -FilePath "$env:ZROK_EXE" -ArgumentList "share private --backend-mode tcpTunnel 127.0.0.1:3389 --headless" -RedirectStandardOutput $zrokLog -RedirectStandardError $zrokErr -PassThru -NoNewWindow
 
           echo "Zrok Share Started (PID: $($proc.Id)). Scanning log for token..."
 
