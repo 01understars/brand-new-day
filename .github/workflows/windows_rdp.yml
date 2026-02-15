@@ -6,6 +6,10 @@ on:
 jobs:
   windows-rdp-zrok:
     runs-on: windows-latest
+    env:
+      ZROK_TOKEN: ${{ secrets.ZROK_TOKEN }}
+      CF_TUNNEL_TOKEN: ${{ secrets.CF_TUNNEL_TOKEN }}
+      NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -28,13 +32,13 @@ jobs:
           echo "C:\Program Files\zrok\bin" >> $env:GITHUB_PATH
 
       - name: Enable Zrok Environment
-        if: ${{ secrets.ZROK_TOKEN != '' }}
+        if: env.ZROK_TOKEN != ''
         run: |
           # Enable execution of Zrok commands
-          zrok enable ${{ secrets.ZROK_TOKEN }}
+          zrok enable ${{ env.ZROK_TOKEN }}
 
       - name: Share RDP via Zrok (Private)
-        if: ${{ secrets.ZROK_TOKEN != '' }}
+        if: env.ZROK_TOKEN != ''
         run: |
           # Start sharing port 3389 privately. This runs in background.
           # The output will contain the 'zrok access private ...' command needed on client.
@@ -44,7 +48,7 @@ jobs:
 
       # --- CLOUDFLARE SETUP (Secondary Option) ---
       - name: Install Cloudflared
-        if: ${{ secrets.CF_TUNNEL_TOKEN != '' }}
+        if: env.CF_TUNNEL_TOKEN != ''
         run: |
           choco install cloudflared
           cloudflared service install ${{ secrets.CF_TUNNEL_TOKEN }}
@@ -52,9 +56,7 @@ jobs:
 
       # --- NGROK SETUP (Fallback Option) ---
       - name: Install & Start Ngrok
-        if: ${{ secrets.NGROK_AUTH_TOKEN != '' }}
-        env:
-          NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+        if: env.NGROK_AUTH_TOKEN != ''
         run: |
           choco install ngrok
           ngrok config add-authtoken $env:NGROK_AUTH_TOKEN
