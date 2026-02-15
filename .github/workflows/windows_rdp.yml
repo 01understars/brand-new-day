@@ -28,10 +28,12 @@ jobs:
       - name: Install Zrok
         run: |
           New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\zrok\bin"
-          Invoke-WebRequest -Uri "https://github.com/openziti/zrok/releases/download/v0.4.52/zrok_0.4.52_windows_amd64.tar.gz" -OutFile "$env:USERPROFILE\zrok.tar.gz"
+          $v = (Invoke-RestMethod -Uri "https://api.github.com/repos/openziti/zrok/releases/latest").tag_name
+          $url = "https://github.com/openziti/zrok/releases/download/$v/zrok_$(($v).TrimStart('v'))_windows_amd64.tar.gz"
+          Invoke-WebRequest -Uri $url -OutFile "$env:USERPROFILE\zrok.tar.gz"
           tar -xzf "$env:USERPROFILE\zrok.tar.gz" -C "$env:USERPROFILE\zrok\bin"
-          $env:Path = "$env:USERPROFILE\zrok\bin\zrok_0.4.52_windows_amd64;$env:Path"
-          echo "$env:USERPROFILE\zrok\bin\zrok_0.4.52_windows_amd64" >> $env:GITHUB_PATH
+          $env:Path = "$env:USERPROFILE\zrok\bin\zrok_$(($v).TrimStart('v'))_windows_amd64;$env:Path"
+          echo "$env:USERPROFILE\zrok\bin\zrok_$(($v).TrimStart('v'))_windows_amd64" >> $env:GITHUB_PATH
 
       - name: Enable Zrok Environment
         if: env.ZROK_TOKEN != ''
