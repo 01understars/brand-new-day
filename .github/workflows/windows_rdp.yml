@@ -27,9 +27,11 @@ jobs:
       # --- ZROK SETUP (Primary Free Option) ---
       - name: Install Zrok
         run: |
-          choco install zrok
-          $env:Path = "C:\Program Files\zrok\bin;$env:Path"
-          echo "C:\Program Files\zrok\bin" >> $env:GITHUB_PATH
+          New-Item -ItemType Directory -Force -Path "$env:USERPROFILE\zrok\bin"
+          Invoke-WebRequest -Uri "https://github.com/openziti/zrok/releases/download/v0.4.52/zrok_0.4.52_windows_amd64.tar.gz" -OutFile "$env:USERPROFILE\zrok.tar.gz"
+          tar -xzf "$env:USERPROFILE\zrok.tar.gz" -C "$env:USERPROFILE\zrok\bin"
+          $env:Path = "$env:USERPROFILE\zrok\bin\zrok_0.4.52_windows_amd64;$env:Path"
+          echo "$env:USERPROFILE\zrok\bin\zrok_0.4.52_windows_amd64" >> $env:GITHUB_PATH
 
       - name: Enable Zrok Environment
         if: env.ZROK_TOKEN != ''
